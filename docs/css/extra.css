@@ -24,6 +24,12 @@
   max-width: 100%;
 }
 
+.md-typeset__scrollwrap {
+  display: flex;
+  justify-content: center;
+}
+
+
 /* Keep navigation arrows from shrinking beside long labels. */
 .md-nav__link .md-nav__icon {
   flex: 0 0 0.9rem;

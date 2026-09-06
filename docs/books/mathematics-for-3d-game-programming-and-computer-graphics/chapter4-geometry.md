@@ -274,3 +274,159 @@ $$
 
 ## 3. THE VIEW FRUSTUM
 
+**视锥体（View Frustum）** ，形如金字塔，顶点位于摄像机位置，表示三维场景中通过屏幕可见的所有空间体积。如下图所示：
+
+![view-frustum](./assets/chap4-view-frustum.png)
+/// caption
+Figure 4:  视锥体示意图。由近平面（距离 $n$ ），远平面（距离 $f$ ），四个经过相机位置 $\mathbf{C}$ 的边平面包围。
+///
+
+视锥体由六个平面包围：
+
+- 四个对应屏幕边缘，称为左、右、上、下锥平面。
+- 两个对应最近和最远可视物体范围，称为近锥平面和远锥平面。
+
+视锥体对齐于 **相机空间（Camera Space）**，该空间以相机位置为原点，$x$ 轴指向右，$y$ 轴指向上，$z$ 轴方向决定于 3D 图形库。采用 OpenGL 库的规定，$z$ 轴指向相机朝向的反向。如下图所示，该坐标系统为右手系：
+
+![camera-space](./assets/chap4-camera-space.png)
+/// caption
+Figure 5:  OpenGL 中的相机空间示意图。
+///
+
+
+### Field of View
+
+**投影平面（Projection Plane）** 为垂直于相机朝向，距离为 $e$ ，并与左右锥平面分别相交于 $x=-1$ 和 $x=1$ 的平面。其中，距离 $e$ 称为相机 **焦距（Focal Length）**，其依赖于锥平面形成的角度 $\alpha$ 。角度 $\alpha$ 称为 **水平视场角（Horizontal Field of View Angle）**。如下图所示：
+
+![projection-plane](./assets/chap4-projection-plane.png)
+/// caption
+Figure 6:  投影平面到相机的距离 $e$ 依赖于水平视场角 $\alpha$ 。
+///
+
+由三角关系可知：
+
+$$
+e = \frac{1}{\tan(\alpha/2)}
+$$
+
+即更大的视场角对应更短的焦距。相机可以通过减小视场角来实现“拉近”效果，这相当于使用更长的焦距。
+
+同理，可定义 **垂直视场角（Vertical Field of View）**：
+
+设上下锥平面与投影平面相交于 $y=\pm a$ ，其中 $a$ 称为显示器的 **纵横比（Aspect Ratio）**，则垂直视场角 $\beta$ 为：
+
+$$
+\beta = 2\tan^{-1}(a/e)
+$$
+
+如下图所示：
+
+![vertical-field-of-view](./assets/chap4-vertical-filed-of-view.png)
+/// caption
+Figure 7:  垂直视场角 $\beta$ 依赖于纵横比 $a$ 。
+///
+
+### Frustum Planes
+
+六个锥平面的法向方向和四维向量表示由如下所示：
+
+![normal-directions](./assets/chap4-normal-directions.png)
+/// caption
+Figure 8:  OpenGL 相机空间中锥平面法向方向示意图。
+///
+
+
+| **Plane** |                                $\langle \mathbf{n},D\rangle$                                |
+| :-------: | :-----------------------------------------------------------------------------------------: |
+|   Near    |                                 $\langle 0,0,-1,-n\rangle$                                  |
+|    Far    |                                  $\langle 0,0,1,f\rangle$                                   |
+|   Left    |   $\left\langle \dfrac{e}{\sqrt{e^2+1}},\,0,\,-\dfrac{1}{\sqrt{e^2+1}},\,0\right\rangle$    |
+|   Right   |   $\left\langle -\dfrac{e}{\sqrt{e^2+1}},\,0,\,-\dfrac{1}{\sqrt{e^2+1}},\,0\right\rangle$   |
+|  Bottom   | $\left\langle 0,\,\dfrac{e}{\sqrt{e^2+a^2}},\,-\dfrac{a}{\sqrt{e^2+a^2}},\,0\right\rangle$  |
+|    Top    | $\left\langle 0,\,-\dfrac{e}{\sqrt{e^2+a^2}},\,-\dfrac{a}{\sqrt{e^2+a^2}},\,0\right\rangle$ |
+
+
+## 4. Perspective-Correct Interpolation
+
+为渲染三角形到屏幕上，3D 图形处理器会逐扫描线地对其进行光栅化。当绘制单条扫描线时，每个像素处的信息由左右端点携带信息插值导出。该插值通常为非线性，如下图所示：
+
+![interpolation](./assets/chap4-interpolation.png)
+/// caption
+Figure 9:  投影平面上的等距步长，随与相机距离增大，对应于三角形表面上更大的步长。因此正确的插值为非线性的。
+///
+
+### Depth Interpolation
+
+考虑位于 $x-z$ 平面的扫描线段，如下图所示，探究 $z$ 坐标（深度值）的正确插值方式：
+
+![line-segment](./assets/chap4-line-segment.png)
+/// caption
+Figure 10:  扫描线段由投影平面等距投射光线采样示意图。
+///
+
+设扫描线段方程为：
+
+$$
+ax + bz = c \quad (c\neq0)
+$$
+
+给定扫描线段上一点 $\left< x,z \right>$ ，从原点向其投射光线，与投影平面交于 $\left< p,-e \right>$ ，由相似关系有：
+
+$$
+\frac{p}{x} = \frac{-e}{z}
+$$
+
+求解 $x$ 后代入线段方程有：
+
+$$
+\frac{1}{z} = -\frac{ap}{ce} + \frac{b}{c}
+$$
+
+设扫描线段两顶点为 $\left< x_{1},z_{1} \right>$ 和 $\left< x_{2},z_{2} \right>$ ，对应投影平面点为 $\left< p_{1},-e \right>$ 和 $\left< p_{2},-e \right>$ 。令 $p=(1-t)p_{1}+tp_{2}$ ，由上式计算有：
+
+$$
+\begin{align}
+\frac{1}{z} &= -\frac{ap}{ce} + \frac{b}{c} \\
+&= -\frac{ap_{1}}{ce}(1-t)-\frac{ap_{2}}{ce}t + \frac{b}{c} \\
+&= \left( -\frac{ap_{1}}{ce} + \frac{b}{c} \right)(1-t) + \left( -\frac{ap_{2}}{ce} + \frac{b}{c} \right)t \\
+&= \frac{1}{z_{1}}(1-t) + \frac{1}{z_{2}}t
+\end{align}
+$$
+
+即 $z$ 坐标的倒数为线性插值。
+
+### Vertex Attribute Interpolation
+
+顶点除深度外，通常仍带有如光照颜色和纹理坐标等信息，统称为 **顶点属性（Vertex Attribute）**。下面探究顶点属性的正确插值方式：
+
+设扫描线段两顶点深度值为 $z_{1},z_{2}$ ，同时带有标量属性 $b_{1},b_{2}$ 。考虑扫描线上深度值为 $z$ ，标量属性为 $b$ 的一点，由相似关系有：
+
+$$
+\frac{b-b_{1}}{b_{2}-b_{1}} = \frac{z-z_{1}}{z_{2}-z_{1}}
+$$
+
+代入深度插值式：
+
+$$
+z = \frac{1}{\frac{1}{z_{1}}(1-t)+\frac{1}{z_{2}}t}
+$$
+
+计算有：
+
+$$
+\begin{align}
+b &= \frac{\frac{b_{1}}{z_{1}}(1-t)+\frac{b_{2}}{z_{2}}t}{\frac{1}{z_{1}}(1-t)+\frac{b_{2}}{z_{2}}t} \\
+&= z\left[ \frac{b_{1}}{z_{1}}(1-t)+\frac{b_{2}}{z_{2}}t \right] 
+\end{align}
+$$
+
+整理得：
+
+$$
+\frac{b}{z} = \frac{b_{1}}{z_{1}}(1-t) + \frac{b_{2}}{z_{2}}t
+$$
+
+即 $b/z$ 为线性插值。
+
+
+## 5. Projections
